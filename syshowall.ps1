@@ -1,29 +1,16 @@
-﻿<#
+﻿#Requires -PSEdition Core
+#Requires -Version 7.0
+
+<#
 syshowall - Synergy Configuration Collector
 Written by Sergii Oleshchenko
 GitHub: https://github.com/nightzone/syshowall
 #>
-$scriptVersion = "3.2 PS"
+$scriptVersion = "3.3 Powershell Core"
 
-# create class to handle SSL errors
-$code = @"
-public class SSLHandler
-{
-    public static System.Net.Security.RemoteCertificateValidationCallback GetSSLHandler()
-    {
-       return new System.Net.Security.RemoteCertificateValidationCallback((sender, certificate, chain, policyErrors) => { return true; });
-    }
-
-}
-"@
-
-# added for JavaScript serialized object
-[void][System.Reflection.Assembly]::LoadWithPartialName("System.Web.Extensions")
-
-#compile the class
-if (-not ([System.Management.Automation.PSTypeName]'SSLHandler').Type)
-{
-    Add-Type -TypeDefinition $code
+# Disable SSL 
+$Script:PSDefaultParameterValues = @{
+    "Invoke-RestMethod:SkipCertificateCheck" = $true
 }
 
 # to support zipping
@@ -400,11 +387,7 @@ function Get_Appliance_Model()
 
     try
 	{
-        #disable SSL checks using new class
-        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = [SSLHandler]::GetSSLHandler()
-
-        $respWeb = (Invoke-WebRequest -Uri $url -Method GET -Headers $header -UseBasicParsing).Content    #Invoke-RestMethod
-        $resp = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($respWeb)
+        $resp = Invoke-RestMethod -Uri $url -Method GET -Headers $header
 
         $applianceModel = $resp.modelNumber
 
@@ -415,8 +398,6 @@ function Get_Appliance_Model()
 	}
     finally
     {
-        #enable ssl checks again
-        [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
     }
 
 return $applianceModel
@@ -488,8 +469,6 @@ function create_session([String]$applianceIP, [String]$Login, [String]$Password,
 
   try
   {
-    #disable SSL checks using new class
-    [System.Net.ServicePointManager]::ServerCertificateValidationCallback = [SSLHandler]::GetSSLHandler()
     $result = Invoke-RestMethod -Uri $url -Method POST -Headers $header -Body $bodyJSON
     $sessionID = $result.sessionID
     Write-Host "Logged on successfully."
@@ -500,8 +479,6 @@ function create_session([String]$applianceIP, [String]$Login, [String]$Password,
   }
   finally
   {
-    #enable ssl checks again
-    [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
   }
 
   return $sessionID
@@ -537,19 +514,13 @@ function extract_data([String]$ResourceName, [System.Array]$Resources)
 
 			try
 			{
-                #disable SSL checks using new class
-                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = [SSLHandler]::GetSSLHandler()
-
-                $respWeb = (Invoke-WebRequest -Uri $url -Method GET -Headers $header -UseBasicParsing).Content    #Invoke-RestMethod
-                $resp = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($respWeb)
+                $resp = Invoke-RestMethod -Uri $url -Method GET -Headers $header
 
                 $count = 0
                 while(($null -ne $resp.nextPageUri) -and ($resp.count -lt $countMax) -and ($resp.count -lt $resp.total) -and ($count -le 1000))
                 {
                     $url = "https://" + $applianceIP + $resp.nextPageUri
-                 #   $resp1 = Invoke-RestMethod -Uri $url -Method GET -Headers $header
-                    $resp1Web = (Invoke-WebRequest -Uri $url -Method GET -Headers $header -UseBasicParsing).Content
-                    $resp1 = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($resp1Web)
+                    $resp1 = Invoke-RestMethod -Uri $url -Method GET -Headers $header
                     $resp.members += $resp1.members
                     $resp.count += $resp1.count
                     $resp.nextPageUri = $resp1.nextPageUri
@@ -607,18 +578,13 @@ function extract_data_by_uri([String]$ResourceName, [String]$FileName, [String]$
 
 			try
 			{
-                #disable SSL checks using new class
-                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = [SSLHandler]::GetSSLHandler()
-
-                $respWeb = (Invoke-WebRequest -Uri $url -Method GET -Headers $header -UseBasicParsing).Content    #Invoke-RestMethod
-                $resp = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($respWeb)
+                $resp = Invoke-RestMethod -Uri $url -Method GET -Headers $header
 
                 $count = 0
                 while(($null -ne $resp.nextPageUri) -and ($resp.count -lt $countMax) -and ($resp.count -lt $resp.total) -and ($count -le 1000))
                 {
                     $url = "https://" + $applianceIP + $resp.nextPageUri
-                    $resp1Web = (Invoke-WebRequest -Uri $url -Method GET -Headers $header -UseBasicParsing).Content
-                    $resp1 = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($resp1Web)
+                    $resp1 = Invoke-RestMethod -Uri $url -Method GET -Headers $header
                     $resp.members += $resp1.members
                     $resp.count += $resp1.count
                     $resp.nextPageUri = $resp1.nextPageUri
@@ -683,9 +649,7 @@ function extract_data_by_uri([String]$ResourceName, [String]$FileName, [String]$
                 foreach($uri in $uriList)
                 {
                     $url = "https://" + $applianceIP + $uri
-                    $respWeb = (Invoke-WebRequest -Uri $url -Method GET -Headers $header -UseBasicParsing).Content
-                    $resp = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($respWeb)
-
+                    $resp = Invoke-RestMethod -Uri $url -Method GET -Headers $header
                    if($resp.ContainsKey('members'))
                    {
                       $data.members += $resp.members
@@ -745,18 +709,13 @@ function extract_resource_uri_list([String]$RestUri, [String]$SearchField, [Int]
 
 			try
 			{
-                #disable SSL checks using new class
-                [System.Net.ServicePointManager]::ServerCertificateValidationCallback = [SSLHandler]::GetSSLHandler()
-
-                $respWeb = (Invoke-WebRequest -Uri $url -Method GET -Headers $header -UseBasicParsing).Content    #Invoke-RestMethod
-                $resp = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($respWeb)
+                $resp = Invoke-RestMethod -Uri $url -Method GET -Headers $header
 
                 $count = 0
                 while(($null -ne $resp.nextPageUri) -and ($resp.count -lt $countMax) -and ($resp.count -lt $resp.total) -and ($count -le 1000))
                 {
                     $url = "https://" + $applianceIP + $resp.nextPageUri
-                    $resp1Web = (Invoke-WebRequest -Uri $url -Method GET -Headers $header -UseBasicParsing).Content
-                    $resp1 = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($resp1Web)
+                    $resp1 = Invoke-RestMethod -Uri $url -Method GET -Headers $header
                     $resp.members += $resp1.members
                     $resp.count += $resp1.count
                     $resp.nextPageUri = $resp1.nextPageUri
@@ -855,8 +814,7 @@ function extract_data_by_uri_list([String]$ResourceName, [String]$FileName, [Arr
                           $url = $url + "/" + $AppendUri
                       }
 
-                      $respWeb = (Invoke-WebRequest -Uri $url -Method GET -Headers $header -UseBasicParsing).Content
-                      $resp = (New-Object -TypeName System.Web.Script.Serialization.JavaScriptSerializer -Property @{MaxJsonLength=67108864}).DeserializeObject($respWeb)
+                      $resp = Invoke-RestMethod -Uri $url -Method GET -Headers $header
 
                      if($resp.ContainsKey('members'))
                      {
@@ -1029,8 +987,6 @@ function extract_all([String]$applianceIP, [String]$Login, [String]$Password)
         $url = "https://" + $applianceIP + "/rest/login-sessions"
 	    try
 		{
-            #disable SSL checks using new class
-            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = [SSLHandler]::GetSSLHandler()
             Write-Host "`nDisconnect from Appliance:" $applianceIP
             $resp = Invoke-RestMethod -Uri $url -Method Delete -Headers $header
 		}
@@ -1041,8 +997,6 @@ function extract_all([String]$applianceIP, [String]$Login, [String]$Password)
 		}
         finally
         {
-            #enable ssl checks again
-            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = $null
         }
 
 		# Create and write info.txt
@@ -1117,11 +1071,9 @@ if(Test-Path $iplistPath)
     {
         Write-Host("   $ip")
     }
-    Write-Host "`nPlease enter credentials.`n"
-
-    $username = Read-Host "Login"
-    [SecureString]$password = Read-Host -AsSecureString "Password"
-    $decryptPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($password))
+    $credential = Get-Credential -Message "Appliance credential"
+    $username = $credential.UserName
+    $decryptPassword = ($credential.Password | ConvertFrom-SecureString -AsPlainText)
 
     foreach($ip in (Get-Content $iplistPath))
     {
@@ -1142,10 +1094,10 @@ else  # collect config for single system
     {
 
         $applianceIP = Read-Host "Appliance IP"
-        $username = Read-Host "Login"
-        [SecureString]$password = read-host -AsSecureString "Password"
-        $decryptPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($password))
-
+        $credential = Get-Credential -Message "Appliance credential"
+        $username = $credential.UserName
+        $decryptPassword = ($credential.Password | ConvertFrom-SecureString -AsPlainText)
+ 
         $header = @{}
 
         # Collect Configuration
@@ -1157,7 +1109,6 @@ else  # collect config for single system
 
 # Cleanup variables
 $username = ""
-$password.Clear()
 $decryptPassword = ""
 
 Read-Host "Press <Enter> to exit..."
