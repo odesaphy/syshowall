@@ -1,6 +1,6 @@
 syshowall
 =========
-`syshowall v3.2 PS - Synergy Configuration Collector`
+`syshowall v3.3 PS - Synergy Configuration Collector`
 
 ### Features:
 * Collects HPE OneView or Global Dashboard Appliance configuration.
@@ -28,7 +28,7 @@ syshowall
 Example:
 
 	PS C:\Temp\syshowall> .\syshowall.ps1
-	syshowall v3.2 PS - Synergy Configuration Collector
+	syshowall v3.3 PS - Synergy Configuration Collector
 
 	Appliance IP: 10.72.14.39
 	Login: Administrator
@@ -44,10 +44,9 @@ Example of `iplist.txt`:
 	10.10.10.2
 
 ### Requirements:
-* Microsoft .NET 4.5 installed
-* Tested on Windows 10 and PowerShell 5.1
-* Tested on Windows Server 2022 and PowerShell 5.1
-* Tested on Windows Server 2012 R2 and PowerShell 4.0
+* PowerShell Core 7.0+
+* Tested on Windows 10 and PowerShell 7.4.7 & 7.5
+* Tested on Ubuntu 24.04 and PowerShell 7.5
 
 ### Author:
 Sergii Oleshchenko<br/>
